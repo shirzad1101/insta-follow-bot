@@ -1,72 +1,60 @@
+from instagrapi import Client
 import time
 import random
-from instagrapi import Client
 
-# ======== Benutzer Eingabe ========
+# Login
+cl = Client()
 username = input("👉 Instagram Benutzername: ")
 password = input(" Instagram Passwort: ")
+cl.login(username, password)
+print(f"✅ Eingeloggt als {username}")
 
-cl = Client()
-try:
-    cl.login(username, password)
-    print(f"✅ Eingeloggt als {username}")
-except Exception as e:
-    print(f"❌ Login fehlgeschlagen: {e}")
-    exit()
-
-target_account = input("👉 Ziel-Account eingeben: ")
+# Zielaccount
+target_username = input("👉 Ziel-Account eingeben: ")
 mode = input("👉 Modus wählen (followers/following): ").lower()
-try:
-    num_accounts = int(input("👉 Wie viele Accounts sollen bearbeitet werden?: "))
-except ValueError:
-    print("❌ Bitte eine Zahl eingeben")
-    exit()
+max_follows = int(input("👉 Wie viele Accounts sollen bearbeitet werden?: "))
 dry_run_input = input("👉 Dry-Run Modus? (ja/nein): ").lower()
 dry_run = dry_run_input == "ja"
 
-# ======== Ziel-Accounts abrufen ========
+# User-ID abrufen
 try:
-    user_id = cl.user_id_from_username(target_account)
-    print(f"✅ User-ID von {target_account}: {user_id}")
+    user_info = cl.user_info_by_username(target_username)
+    target_user_id = user_info.pk
+    print(f"✅ User-ID von {target_username}: {target_user_id}")
 except Exception as e:
-    print(f"❌ Fehler beim Abrufen der User-ID: {e}")
+    print(f"❌ Fehler beim Abrufen des Ziel-Accounts: {e}")
     exit()
 
-try:
-    if mode == "followers":
-        accounts_to_follow = cl.user_followers(user_id, amount=num_accounts)
-    elif mode == "following":
-        accounts_to_follow = cl.user_following(user_id, amount=num_accounts)
-    else:
-        print("❌ Modus muss 'followers' oder 'following' sein")
-        exit()
-    print(f"📥 {len(accounts_to_follow)} Accounts von {target_account} geladen")
-except Exception as e:
-    print(f"❌ Fehler beim Abrufen der Accounts: {e}")
-    exit()
+# Follower oder Following laden
+if mode == "followers":
+    users = cl.user_followers(target_user_id, amount=max_follows)
+else:
+    users = cl.user_following(target_user_id, amount=max_follows)
 
-# ======== Follow-Loop ========
-for user in accounts_to_follow.values():
-    try:
-        user_full = cl.user_info(user.pk)
-    except Exception as e:
-        print(f"⚠️ Fehler beim Laden von {user.username}: {e}")
-        continue
+print(f"📥 {len(users)} Accounts von {target_username} geladen")
 
-    # Skip bereits gefolgte oder unerwünschte Accounts
-    if cl.user_following(user_full.pk) or user_full.is_private or (user_full.follower_count < 5000 and user_full.media_count < 5):
-        continue
+# Already following prüfen
+already_following = cl.user_following(cl.user_id)
 
-    if dry_run:
-        print(f"DRY RUN: Würde {user_full.username} folgen")
-    else:
-        try:
-            cl.user_follow(user_full.pk)
-            print(f"✅ Gefolgt: {user_full.username}")
-        except Exception as e:
-            print(f"❌ Fehler beim Folgen von {user_full.username}: {e}")
+count = 0
+for user_id, user in users.items():
+    if count >= max_follows:
+        break
 
-    # Random Pause
-    time.sleep(random.uniform(3, 4))
+    # Filter für unechte Accounts / Bots
+    if user.is_private or (user.follower_count < 5000 and user.media_count > 5):
+        if user.pk in already_following:
+            print(f"⏩ Schon gefolgt: {user.username}")
+        else:
+            print(f"➡️  Account: {user.username}")
+            if not dry_run:
+                cl.user_follow(user.pk)
+                print(f"✅ Gefolgt: {user.username}")
+            else:
+                print(f"DRY RUN: Würde {user.username} folgen")
+            count += 1
+            pause = round(random.uniform(3, 4), 2)
+            print(f"⏸️  Pause {pause} Sekunden")
+            time.sleep(pause)
 
-print(f"🎉 {'Dry-Run / ' if dry_run else ''}Follow-Durchlauf beendet!")
+print("🎉 Dry-Run / Follow-Durchlauf beendet ✅")
