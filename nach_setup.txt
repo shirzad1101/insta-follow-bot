@@ -1,0 +1,6 @@
+cd Pfad\zum\insta-bot
+.\venv\Scripts\Activate.ps1
+
+###############################
+
+python follow_bot.py
