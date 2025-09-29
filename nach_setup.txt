@@ -7,7 +7,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ##############
 
 
-cd Pfad\zum\insta-bot
+cd C:\Users\shirz\insta-bot
 .\venv\Scripts\Activate.ps1
 
 ###############################
